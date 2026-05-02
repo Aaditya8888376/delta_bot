@@ -173,7 +173,12 @@ def run_trading(config: Dict[str, Any], *, paper: bool, once: bool) -> None:
             continue
 
         price = candles[-1].close
-        equity = _fetch_equity(exchange, config) if not paper else float(state.get("paper_cash", config["risk"]["capital_usd"]))
+        if paper:
+            cash = float(state.get("paper_cash", config["risk"]["capital_usd"]))
+            paper_position = float(state.get("paper_position", 0.0))
+            equity = cash + (paper_position * price)
+        else:
+            equity = _fetch_equity(exchange, config)
         _update_daily_state(state, equity)
 
         day_start = float(state.get("day_start_equity", equity))

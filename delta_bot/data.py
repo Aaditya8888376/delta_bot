@@ -148,14 +148,15 @@ def validate_ohlcv(candles: List[Candle], timeframe: str) -> List[str]:
         return ["No candles fetched"]
     expected_gap = timeframe_seconds(timeframe) * 1000
     seen = set()
-    prev = candles[0].timestamp
+    prev = None
     for candle in candles:
         if candle.timestamp in seen:
             issues.append(f"Duplicate timestamp: {candle.timestamp}")
         seen.add(candle.timestamp)
-        gap = candle.timestamp - prev
-        if gap > expected_gap:
-            issues.append(f"Gap detected: {gap / 1000:.0f}s at {candle.datetime}")
+        if prev is not None:
+            gap = candle.timestamp - prev
+            if gap > expected_gap:
+                issues.append(f"Gap detected: {gap / 1000:.0f}s at {candle.datetime}")
         prev = candle.timestamp
     return issues
 

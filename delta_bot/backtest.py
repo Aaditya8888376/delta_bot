@@ -64,7 +64,7 @@ def run_backtest(
     balance = equity
     position = 0.0
     entry_price = 0.0
-    entry_time = ""
+    entry_time: Optional[str] = None
     trade_funding = 0.0
     trades: List[Trade] = []
     equity_curve: List[Dict[str, float]] = []
@@ -107,7 +107,7 @@ def run_backtest(
                 fees_paid += fee
                 trades.append(
                     Trade(
-                        entry_time=entry_time or candle.datetime,
+                        entry_time=entry_time if entry_time is not None else candle.datetime,
                         exit_time=candle.datetime,
                         side=current_side,
                         qty=abs(position),
@@ -120,7 +120,7 @@ def run_backtest(
                 )
                 position = 0.0
                 entry_price = 0.0
-                entry_time = ""
+                entry_time = None
                 trade_funding = 0.0
 
             if desired in {"long", "short"}:
