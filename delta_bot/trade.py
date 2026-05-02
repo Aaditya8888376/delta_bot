@@ -10,7 +10,7 @@ from typing import Any, Dict
 from .data import Candle, load_ohlcv_csv, make_ohlcv_path
 from .exchange import create_exchange
 from .strategy import generate_signal
-from .utils import ensure_dir
+from .utils import apply_slippage, calculate_position_size, ensure_dir
 
 
 def _setup_logger(log_dir: str) -> logging.Logger:
@@ -86,11 +86,6 @@ def _update_daily_state(state: Dict[str, Any], equity: float) -> None:
         state["day_start_equity"] = equity
 
 
-def _apply_slippage(price: float, side: str, bps: float) -> float:
-    delta = price * (bps / 10000)
-    return price + delta if side == "buy" else price - delta
-
-
 def _paper_execute(state: Dict[str, Any], side: str, qty: float, price: float, config: Dict[str, Any]) -> None:
     fee = abs(price * qty) * (config["risk"]["fee_bps"] / 10000)
     cash = float(state.get("paper_cash", config["risk"]["capital_usd"]))
@@ -105,17 +100,6 @@ def _paper_execute(state: Dict[str, Any], side: str, qty: float, price: float, c
 
     state["paper_cash"] = cash
     state["paper_position"] = position
-
-
-def _position_size(config: Dict[str, Any], price: float, stop_distance: float, equity: float) -> float:
-    if stop_distance <= 0:
-        return 0.0
-    risk_amount = equity * config["risk"]["risk_per_trade"]
-    qty_by_risk = risk_amount / stop_distance
-    max_notional = equity * config["risk"]["max_leverage"]
-    max_qty = max_notional / price
-    max_qty_by_pct = (equity * config["risk"]["max_position_pct"]) / price
-    return max(0.0, min(qty_by_risk, max_qty, max_qty_by_pct))
 
 
 def run_trading(config: Dict[str, Any], *, paper: bool, once: bool) -> None:
@@ -199,7 +183,7 @@ def run_trading(config: Dict[str, Any], *, paper: bool, once: bool) -> None:
             current_position = _get_position(exchange, symbol, state, paper)
             if current_position != 0:
                 side = "sell" if current_position > 0 else "buy"
-                trade_price = _apply_slippage(price, side, config["risk"]["slippage_bps"])
+                trade_price = apply_slippage(price, side, config["risk"]["slippage_bps"])
                 if paper:
                     _paper_execute(state, side, abs(current_position), trade_price, config)
                 else:
@@ -228,7 +212,7 @@ def run_trading(config: Dict[str, Any], *, paper: bool, once: bool) -> None:
         if signal.side != current_side:
             if current_position != 0:
                 side = "sell" if current_position > 0 else "buy"
-                trade_price = _apply_slippage(price, side, config["risk"]["slippage_bps"])
+                trade_price = apply_slippage(price, side, config["risk"]["slippage_bps"])
                 if paper:
                     _paper_execute(state, side, abs(current_position), trade_price, config)
                 else:
@@ -245,10 +229,10 @@ def run_trading(config: Dict[str, Any], *, paper: bool, once: bool) -> None:
                 )
 
             if signal.side in {"long", "short"}:
-                qty = _position_size(config, price, signal.stop_distance, equity)
+                qty = calculate_position_size(config["risk"], price, signal.stop_distance, equity)
                 if qty > 0:
                     side = "buy" if signal.side == "long" else "sell"
-                    trade_price = _apply_slippage(price, side, config["risk"]["slippage_bps"])
+                    trade_price = apply_slippage(price, side, config["risk"]["slippage_bps"])
                     if paper:
                         _paper_execute(state, side, qty, trade_price, config)
                     else:

@@ -64,3 +64,19 @@ def resolve_env(value: Any) -> Any:
 def chunked(items: List[Any], size: int) -> Iterable[List[Any]]:
     for index in range(0, len(items), size):
         yield items[index : index + size]
+
+
+def apply_slippage(price: float, side: str, bps: float) -> float:
+    delta = price * (bps / 10000)
+    return price + delta if side == "buy" else price - delta
+
+
+def calculate_position_size(risk: Dict[str, float], price: float, stop_distance: float, equity: float) -> float:
+    if stop_distance <= 0:
+        return 0.0
+    risk_amount = equity * risk["risk_per_trade"]
+    qty_by_risk = risk_amount / stop_distance
+    max_notional = equity * risk["max_leverage"]
+    max_qty = max_notional / price
+    max_qty_by_pct = (equity * risk["max_position_pct"]) / price
+    return max(0.0, min(qty_by_risk, max_qty, max_qty_by_pct))

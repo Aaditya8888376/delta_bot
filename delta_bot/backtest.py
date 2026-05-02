@@ -7,7 +7,7 @@ from typing import Dict, List, Optional
 
 from .data import Candle, FundingRate
 from .strategy import Signal, generate_signal
-from .utils import ensure_dir, utc_now
+from .utils import apply_slippage, calculate_position_size, ensure_dir, utc_now
 
 
 @dataclass
@@ -21,23 +21,6 @@ class Trade:
     pnl: float
     fees: float
     funding: float
-
-
-def _apply_slippage(price: float, side: str, bps: float) -> float:
-    delta = price * (bps / 10000)
-    return price + delta if side == "buy" else price - delta
-
-
-def _position_size(config: Dict[str, Dict[str, float]], price: float, stop_distance: float, equity: float) -> float:
-    risk = config["risk"]
-    if stop_distance <= 0:
-        return 0.0
-    risk_amount = equity * risk["risk_per_trade"]
-    qty_by_risk = risk_amount / stop_distance
-    max_notional = equity * risk["max_leverage"]
-    max_qty = max_notional / price
-    max_qty_by_pct = (equity * risk["max_position_pct"]) / price
-    return max(0.0, min(qty_by_risk, max_qty, max_qty_by_pct))
 
 
 def _funding_rate_at(timestamp: int, funding_rates: List[FundingRate]) -> float:
@@ -100,7 +83,7 @@ def run_backtest(
         if desired != current_side:
             if position != 0:
                 exit_side = "sell" if position > 0 else "buy"
-                exit_price = _apply_slippage(candle.open, exit_side, config["risk"]["slippage_bps"])
+                exit_price = apply_slippage(candle.open, exit_side, config["risk"]["slippage_bps"])
                 pnl = (exit_price - entry_price) * position
                 fee = abs(exit_price * position) * (config["risk"]["fee_bps"] / 10000)
                 balance += pnl - fee
@@ -124,10 +107,10 @@ def run_backtest(
                 trade_funding = 0.0
 
             if desired in {"long", "short"}:
-                qty = _position_size(config, candle.open, signal.stop_distance, balance)
+                qty = calculate_position_size(config["risk"], candle.open, signal.stop_distance, balance)
                 if qty > 0:
                     entry_side = "buy" if desired == "long" else "sell"
-                    entry_price = _apply_slippage(candle.open, entry_side, config["risk"]["slippage_bps"])
+                    entry_price = apply_slippage(candle.open, entry_side, config["risk"]["slippage_bps"])
                     fee = abs(entry_price * qty) * (config["risk"]["fee_bps"] / 10000)
                     balance -= fee
                     fees_paid += fee
