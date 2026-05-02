@@ -1,0 +1,47 @@
+{
+  "exchange": {
+    "name": "delta",
+    "api_key": "env:DELTA_API_KEY",
+    "api_secret": "env:DELTA_API_SECRET",
+    "sandbox": true,
+    "enable_rate_limit": true,
+    "timeout_ms": 30000
+  },
+  "market": {
+    "type": "perp",
+    "symbol": "BTC/USDT",
+    "timeframe": "1h",
+    "leverage": 3
+  },
+  "risk": {
+    "capital_usd": 1000,
+    "risk_per_trade": 0.01,
+    "max_leverage": 3,
+    "max_position_pct": 0.2,
+    "max_daily_loss_pct": 0.05,
+    "max_drawdown_pct": 0.2,
+    "fee_bps": 7,
+    "slippage_bps": 5,
+    "stop_loss_atr": 2,
+    "take_profit_atr": 4
+  },
+  "strategy": {
+    "name": "sma_trend_atr_filter",
+    "fast_window": 20,
+    "slow_window": 50,
+    "atr_window": 14,
+    "min_atr_ratio": 0.002,
+    "allow_short": true
+  },
+  "data": {
+    "since": "2023-01-01T00:00:00Z",
+    "data_dir": "data"
+  },
+  "execution": {
+    "order_type": "market",
+    "polling_seconds": 60
+  },
+  "logging": {
+    "log_dir": "logs"
+  }
+}
