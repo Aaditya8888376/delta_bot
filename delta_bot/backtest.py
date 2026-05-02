@@ -155,8 +155,8 @@ def write_backtest_results(results: Dict[str, object], output_dir: Path) -> None
     with open(metrics_path, "w", encoding="utf-8", newline="") as handle:
         writer = csv.writer(handle)
         writer.writerow(["metric", "value"])
-        for key, value in metrics.items():
-            writer.writerow([key, value])
+        for key in sorted(metrics.keys()):
+            writer.writerow([key, metrics[key]])
 
     with open(trades_path, "w", encoding="utf-8", newline="") as handle:
         writer = csv.writer(handle)
@@ -193,5 +193,5 @@ def write_backtest_results(results: Dict[str, object], output_dir: Path) -> None
     summary_path = output_dir / "summary.txt"
     with open(summary_path, "w", encoding="utf-8") as handle:
         handle.write(f"Backtest generated at {utc_now().isoformat()}\n")
-        for key, value in metrics.items():
-            handle.write(f"{key}: {value}\n")
+        for key in sorted(metrics.keys()):
+            handle.write(f"{key}: {metrics[key]}\n")
