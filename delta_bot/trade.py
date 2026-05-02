@@ -5,12 +5,12 @@ import logging
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from .data import Candle, load_ohlcv_csv, make_ohlcv_path
 from .exchange import create_exchange
 from .strategy import generate_signal
-from .utils import ensure_dir, timeframe_seconds
+from .utils import ensure_dir
 
 
 def _setup_logger(log_dir: str) -> logging.Logger:
@@ -182,11 +182,33 @@ def run_trading(config: Dict[str, Any], *, paper: bool, once: bool) -> None:
         else:
             daily_loss = 0.0
 
-        overall_drawdown = (float(state.get("peak_equity", equity)) - equity) / float(state.get("peak_equity", equity))
-        state["peak_equity"] = max(float(state.get("peak_equity", equity)), equity)
+        peak_equity = float(state.get("peak_equity", equity))
+        if peak_equity <= 0:
+            peak_equity = equity
+        overall_drawdown = (peak_equity - equity) / peak_equity if peak_equity else 0.0
+        state["peak_equity"] = max(peak_equity, equity)
 
         if daily_loss >= config["risk"]["max_daily_loss_pct"] or overall_drawdown >= config["risk"]["max_drawdown_pct"]:
             logger.error("Kill switch triggered. Exiting trading loop.")
+            current_position = _get_position(exchange, symbol, state, paper)
+            if current_position != 0:
+                side = "sell" if current_position > 0 else "buy"
+                trade_price = _apply_slippage(price, side, config["risk"]["slippage_bps"])
+                if paper:
+                    _paper_execute(state, side, abs(current_position), trade_price, config)
+                else:
+                    exchange.create_order(symbol, "market", side, abs(current_position), None, {"reduceOnly": True})
+                _record_trade(
+                    config["logging"]["log_dir"],
+                    {
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        "action": "kill_switch_close",
+                        "side": side,
+                        "qty": abs(current_position),
+                        "price": trade_price,
+                    },
+                )
+            state["last_position"] = state.get("paper_position", 0.0) if paper else 0.0
             _save_state(state)
             break
 
@@ -235,6 +257,11 @@ def run_trading(config: Dict[str, Any], *, paper: bool, once: bool) -> None:
                             "price": trade_price,
                         },
                     )
+
+        if paper:
+            current_position = float(state.get("paper_position", 0.0))
+        else:
+            current_position = _get_position(exchange, symbol, state, paper)
 
         state["last_timestamp"] = latest_timestamp
         state["last_position"] = current_position

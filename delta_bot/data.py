@@ -4,7 +4,7 @@ import csv
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, List
 
 from .utils import ensure_dir, timeframe_seconds
 

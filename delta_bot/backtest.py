@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import csv
 from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -65,6 +64,8 @@ def run_backtest(
     balance = equity
     position = 0.0
     entry_price = 0.0
+    entry_time = ""
+    trade_funding = 0.0
     trades: List[Trade] = []
     equity_curve: List[Dict[str, float]] = []
     fees_paid = 0.0
@@ -87,6 +88,7 @@ def run_backtest(
                 funding_payment *= -1
             balance += funding_payment
             funding_paid += funding_payment
+            trade_funding += funding_payment
 
         desired = signal.side
         current_side = "flat"
@@ -105,7 +107,7 @@ def run_backtest(
                 fees_paid += fee
                 trades.append(
                     Trade(
-                        entry_time=window[index - 1].datetime,
+                        entry_time=entry_time or candle.datetime,
                         exit_time=candle.datetime,
                         side=current_side,
                         qty=abs(position),
@@ -113,11 +115,13 @@ def run_backtest(
                         exit_price=exit_price,
                         pnl=pnl - fee,
                         fees=fee,
-                        funding=funding_paid,
+                        funding=trade_funding,
                     )
                 )
                 position = 0.0
                 entry_price = 0.0
+                entry_time = ""
+                trade_funding = 0.0
 
             if desired in {"long", "short"}:
                 qty = _position_size(config, candle.open, signal.stop_distance, balance)
@@ -128,6 +132,7 @@ def run_backtest(
                     balance -= fee
                     fees_paid += fee
                     position = qty if desired == "long" else -qty
+                    entry_time = candle.datetime
 
         equity = balance + position * candle.close
         peak_equity = max(peak_equity, equity)
@@ -203,4 +208,3 @@ def write_backtest_results(results: Dict[str, object], output_dir: Path) -> None
         handle.write(f"Backtest generated at {utc_now().isoformat()}\n")
         for key, value in results["metrics"].items():
             handle.write(f"{key}: {value}\n")
-
