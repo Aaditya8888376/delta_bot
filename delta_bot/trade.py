@@ -53,8 +53,8 @@ def _fetch_equity(exchange: Any, config: Dict[str, Any]) -> float:
         for key in ("USDT", "USD"):
             if key in total:
                 return float(total[key])
-    except Exception:
-        pass
+    except Exception as exc:
+        logging.getLogger("delta_bot").warning("Failed to fetch balance: %s", exc)
     return float(config["risk"]["capital_usd"])
 
 
@@ -67,8 +67,8 @@ def _get_position(exchange: Any, symbol: str, state: Dict[str, Any], paper: bool
             for pos in positions:
                 if pos.get("symbol") == symbol:
                     return float(pos.get("contracts") or pos.get("positionAmt") or 0.0)
-    except Exception:
-        pass
+    except Exception as exc:
+        logging.getLogger("delta_bot").warning("Failed to fetch position: %s", exc)
     return float(state.get("last_position", 0.0))
 
 
