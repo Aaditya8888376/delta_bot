@@ -133,7 +133,8 @@ def run_trading(config: Dict[str, Any], *, paper: bool, once: bool) -> None:
     else:
         candles = []
 
-    state.setdefault("last_timestamp", candles[-1].timestamp if candles else 0)
+    last_timestamp = candles[-1].timestamp if candles else 0
+    state.setdefault("last_timestamp", last_timestamp)
 
     while True:
         ohlcv = exchange.fetch_ohlcv(symbol, timeframe, limit=config["strategy"]["slow_window"] + 2)

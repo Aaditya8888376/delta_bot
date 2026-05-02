@@ -165,10 +165,14 @@ def write_backtest_results(results: Dict[str, object], output_dir: Path) -> None
     trades_path = output_dir / "trades.csv"
     equity_path = output_dir / "equity.csv"
 
+    metrics = results.get("metrics", {})
+    trades = results.get("trades", [])
+    equity_curve = results.get("equity_curve", [])
+
     with open(metrics_path, "w", encoding="utf-8", newline="") as handle:
         writer = csv.writer(handle)
         writer.writerow(["metric", "value"])
-        for key, value in results["metrics"].items():
+        for key, value in metrics.items():
             writer.writerow([key, value])
 
     with open(trades_path, "w", encoding="utf-8", newline="") as handle:
@@ -184,7 +188,7 @@ def write_backtest_results(results: Dict[str, object], output_dir: Path) -> None
             "fees",
             "funding",
         ])
-        for trade in results["trades"]:
+        for trade in trades:
             writer.writerow([
                 trade.entry_time,
                 trade.exit_time,
@@ -200,11 +204,11 @@ def write_backtest_results(results: Dict[str, object], output_dir: Path) -> None
     with open(equity_path, "w", encoding="utf-8", newline="") as handle:
         writer = csv.writer(handle)
         writer.writerow(["timestamp", "equity"])
-        for row in results["equity_curve"]:
+        for row in equity_curve:
             writer.writerow([row["timestamp"], row["equity"]])
 
     summary_path = output_dir / "summary.txt"
     with open(summary_path, "w", encoding="utf-8") as handle:
         handle.write(f"Backtest generated at {utc_now().isoformat()}\n")
-        for key, value in results["metrics"].items():
+        for key, value in metrics.items():
             handle.write(f"{key}: {value}\n")
